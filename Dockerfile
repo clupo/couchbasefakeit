@@ -1,4 +1,4 @@
-FROM couchbase:enterprise-5.0.0
+FROM couchbase:enterprise-4.6.3
 
 # Configure apt-get for NodeJS
 # Install NPM and NodeJS and jq, with apt-get cleanup
@@ -19,7 +19,8 @@ RUN npm install -g fakeit && \
 # Configure default environment
 ENV CB_DATARAM=512 CB_INDEXRAM=256 CB_SEARCHRAM=256 \
 	CB_SERVICES=kv,n1ql,index,fts CB_INDEXSTORAGE=forestdb \
-	CB_USERNAME=Administrator CB_PASSWORD=password
+	CB_USERNAME=Administrator CB_PASSWORD=password \
+	FAKEIT_BUCKETTIMEOUT=5000
 
 RUN mkdir /nodestatus
 VOLUME /nodestatus
