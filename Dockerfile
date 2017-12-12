@@ -1,4 +1,4 @@
-FROM couchbase:enterprise-5.0.0
+FROM couchbase:enterprise-4.6.3
 
 # Configure apt-get for NodeJS
 # Install NPM and NodeJS and jq, with apt-get cleanup
@@ -15,6 +15,10 @@ RUN wget https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 && \
 # Install fakeit
 RUN npm install -g fakeit && \
     rm -rf /tmp/* /var/tmp/*
+	
+# Install vim
+RUN apt-get -qq update
+RUN apt-get -qq -y install vim	
 	
 # Configure default environment
 ENV CB_DATARAM=512 CB_INDEXRAM=256 CB_SEARCHRAM=256 \
