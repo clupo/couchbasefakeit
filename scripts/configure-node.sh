@@ -78,12 +78,38 @@ if [ ! -e "/nodestatus/initialized" ] ; then
 	do
 		if [ -e "/startup/$bucketName/models/" ]; then
 			echo "Building data for $bucketName..."
-
-			if [[ $CB_VERSION < "5." ]]; then
-				fakeit couchbase --bucket "$bucketName" "/startup/$bucketName/models" --timeout $FAKEIT_BUCKETTIMEOUT
-			else
-				fakeit couchbase --bucket "$bucketName" -u "$CB_USERNAME" -p "$CB_PASSWORD" "/startup/$bucketName/models" --timeout $FAKEIT_BUCKETTIMEOUT
-			fi
+			
+			triesLeft=5
+			# execute the code block at least once
+			while true; 
+			do
+				# Try and create a document to see if the bucket is initialized, try again if it errored
+				# If the bucket isn't initialized fakeit will error
+				if nodejs /scripts/is-the-bucket-ready.js $bucketName $CB_USERNAME $CB_PASSWORD $CB_VERSION; then
+					if [[ $CB_VERSION < "5." ]]; then
+				fakeit couchbase --bucket "$bucketName" "/startup/$bucketName/models"
+							--bucket "$bucketName" --timeout $FAKEIT_BUCKETTIMEOUT \
+							"/startup/$bucketName/models"
+					else
+				fakeit couchbase --bucket "$bucketName" -u "$CB_USERNAME" -p "$CB_PASSWORD" "/startup/$bucketName/models"
+							--bucket "$bucketName" -u "$CB_USERNAME" -p "$CB_PASSWORD" --timeout $FAKEIT_BUCKETTIMEOUT \
+							"/startup/$bucketName/models"
+					fi
+					break
+				else
+					if (( $triesLeft > 0)); then
+							echo "Trying again"
+							
+							# Give the bucket a little more time to be ready
+							sleep 3
+					else
+						echo "Data wasn't built"
+					fi
+					((triesLeft--))
+					
+					(( $triesLeft >= 0 )) || break									
+				fi
+			done
 		fi
 	done < <(cat /startup/buckets.json | jq -r '.[].name')
 
@@ -119,6 +145,20 @@ if [ ! -e "/nodestatus/initialized" ] ; then
 				echo "Waiting for index build on $bucketName..."
 				sleep 2
 			done
+		fi
+
+		if [ -e "/startup/$bucketName/indexes/" ]; then
+			echo "Building indexes on $bucketName..."
+
+			if [[ $CB_VERSION < "5." ]]; then
+				/scripts/node_modules/couchbase-index-manager/bin/couchbase-index-manager \
+					-u $CB_USERNAME -p $CB_PASSWORD --no-rbac \
+					sync -f $bucketName /startup/$bucketName/indexes/
+			else
+				/scripts/node_modules/couchbase-index-manager/bin/couchbase-index-manager \
+					-u $CB_USERNAME -p $CB_PASSWORD \
+					sync -f $bucketName /startup/$bucketName/indexes/
+			fi
 		fi
 
 		# Create FTS indexes
